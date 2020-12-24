@@ -1,5 +1,3 @@
-(ql:quickload :alexandria)
-
 (defpackage :day1
   (:use :cl))
 

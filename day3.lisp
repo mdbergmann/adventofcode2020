@@ -1,5 +1,3 @@
-(ql:quickload :arrows)
-
 (defpackage :day3
   (:use :cl :arrows))
 

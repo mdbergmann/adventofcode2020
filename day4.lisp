@@ -1,8 +1,6 @@
-(asdf:load-system :arrows)
-(asdf:load-system :cl-ppcre)
-
+(in-package :cl-user)
 (defpackage :day4
-  (:use :cl :arrows))
+  (:use :cl :arrows :fiveam))
 
 (in-package :day4)
 
@@ -28,40 +26,58 @@
 (defun get-aprop (prop list)
   (assoc prop list :test #'equalp))
 
+(defun valid-year-p (year min max)
+  (and (>= year min) (<= year max)))
+
+(defun valid-4dig-year-p (year-prop min max)
+  (-> year-prop
+      (cdr)
+      (parse-integer)
+      (valid-year-p min max)))
+
 (defun valid-byr-p (pass)
-  (flet ((in-range-p (year)
-           (if (and (>= year 1920) (<= year 2002))
-               t
-               nil)))
-    (-<> (get-aprop "byr" pass)
-         (cdr)
-         (ppcre:scan-to-strings "\\d{4}" <>)
-         (parse-integer)
-         (in-range-p))))
+  (-> (get-aprop "byr" pass)
+      (valid-4dig-year-p 1920 2002)))
+
+(defun valid-iyr-p (pass)
+  (-> (get-aprop "iyr" pass)
+      (valid-4dig-year-p 2010 2020)))
+
+(defun valid-eyr-p (pass)
+  (-> (get-aprop "eyr" pass)
+      (valid-4dig-year-p 2020 2030)))
 
 (defun valid-hgt-p (pass)
   (flet ((scan-groups (hgt)
-           (multiple-value-bind (match groups)
-               (ppcre:scan-to-strings "(\\d{2,3})(.{2})" hgt)
-             (declare (ignore match))
-             groups))
+           (handler-case
+               (multiple-value-bind (match groups)
+                   (ppcre:scan-to-strings "(\\d{2,3})(.{2})" hgt)
+                 (declare (ignore match))
+                 groups)
+             (error (c)
+               (format t "~a~%" c)
+               nil)))
          (in-range-p (scan-groups)
            (when (< (length scan-groups) 2)
              (return-from valid-hgt-p nil))
-           (let ((height (parse-integer (elt scan-groups 0)))
-                 (metric (elt scan-groups 1)))
-             (when (or (null height) (null metric))
+
+           (let ((group1 (elt scan-groups 0))
+                 (group2 (elt scan-groups 1)))
+             (when (or (null group1) (null group2))
                (return-from valid-hgt-p nil))
-             (cond
-               ((string= "in" metric)
-                (if (and (>= height 59) (<= height 76))
-                    t
-                    nil))
-               ((string= "cm" metric)
-                (if (and (>= height 150) (<= height 193))
-                    t
-                    nil))
-               (t nil)))))
+
+             (let ((height (parse-integer group1))
+                   (metric group2))
+               (cond
+                 ((string= "in" metric)
+                  (if (and (>= height 59) (<= height 76))
+                      t
+                      nil))
+                 ((string= "cm" metric)
+                  (if (and (>= height 150) (<= height 193))
+                      t
+                      nil))
+                 (t nil))))))
     (-> (get-aprop "hgt" pass)
         (cdr)
         (scan-groups)
@@ -78,12 +94,49 @@
        (remove-if #'null <>)
        (length)))
 
-(defun test-input ()
+;; -------- tests -----------
+
+(def-suite day4-tests)
+(in-suite day4-tests)
+
+(test test-input
   (let ((input-list (input-to-alist "input/day4.txt")))
-    (assert (listp input-list))
+    (is (listp input-list))
     (print (first input-list))
-    (assert (listp (first input-list)))
+    (is (listp (first input-list)))
     (print (get-aprop "hgt" (first input-list)))
-    (assert (string= "177cm" (cdr (get-aprop "hgt" (first input-list)))))
-    (assert (valid-pass-p (first input-list)))
-    input-list))
+    (is (string= "177cm" (cdr (get-aprop "hgt" (first input-list)))))
+    (is (valid-pass-p (first input-list)))))
+
+(test test-hgt-p
+  (is-false (valid-hgt-p '(("hgt" . "58"))))
+  (is-false (valid-hgt-p '(("hgt" . "58in"))))
+  (is (valid-hgt-p '(("hgt" . "59in"))))
+  (is-false (valid-hgt-p '(("hgt" . "77in"))))
+  (is-false (valid-hgt-p '(("hgt" . "149"))))
+  (is-false (valid-hgt-p '(("hgt" . "149cm"))))
+  (is (valid-hgt-p '(("hgt" . "150cm"))))
+  (is (valid-hgt-p '(("hgt" . "193cm"))))
+  (is-false (valid-hgt-p '(("hgt" . "194cm")))))
+
+(test test-byr-p
+  (is-false (valid-byr-p '(("byr" . "1919"))))
+  (is-false (valid-byr-p '(("byr" . "2003"))))
+  (is (valid-byr-p '(("byr" . "1920"))))
+  (is (valid-byr-p '(("byr" . "2002"))))
+  (is-false (valid-byr-p '(("byr" . "200")))))
+
+(test test-iyr-p
+  (is-false (valid-iyr-p '(("iyr" . "2009"))))
+  (is-false (valid-iyr-p '(("iyr" . "2021"))))
+  (is (valid-iyr-p '(("iyr" . "2010"))))
+  (is (valid-iyr-p '(("iyr" . "2020"))))
+  (is-false (valid-iyr-p '(("iyr" . "200")))))
+
+(test test-eyr-p
+  (is-false (valid-eyr-p '(("eyr" . "2019"))))
+  (is-false (valid-eyr-p '(("eyr" . "2031"))))
+  (is (valid-eyr-p '(("eyr" . "2020"))))
+  (is (valid-eyr-p '(("eyr" . "2030"))))
+  (is-false (valid-eyr-p '(("eyr" . "200")))))
+

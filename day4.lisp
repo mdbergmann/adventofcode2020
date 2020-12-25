@@ -49,44 +49,61 @@
 
 (defun valid-hgt-p (pass)
   (flet ((scan-groups (hgt)
-           (handler-case
-               (multiple-value-bind (match groups)
-                   (ppcre:scan-to-strings "(\\d{2,3})(.{2})" hgt)
-                 (declare (ignore match))
-                 groups)
-             (error (c)
-               (format t "~a~%" c)
-               nil)))
+           (multiple-value-bind (match groups)
+               (ppcre:scan-to-strings "(\\d{2,3})(.{2})" hgt)
+             (if (null match)
+                 nil
+                 groups)))
          (in-range-p (scan-groups)
-           (when (< (length scan-groups) 2)
+           (when (null scan-groups)
              (return-from valid-hgt-p nil))
-
-           (let ((group1 (elt scan-groups 0))
-                 (group2 (elt scan-groups 1)))
-             (when (or (null group1) (null group2))
-               (return-from valid-hgt-p nil))
-
-             (let ((height (parse-integer group1))
-                   (metric group2))
-               (cond
-                 ((string= "in" metric)
-                  (if (and (>= height 59) (<= height 76))
-                      t
-                      nil))
-                 ((string= "cm" metric)
-                  (if (and (>= height 150) (<= height 193))
-                      t
-                      nil))
-                 (t nil))))))
+           (let* ((group1 (elt scan-groups 0))
+                  (group2 (elt scan-groups 1))
+                  (height (parse-integer group1))
+                  (metric group2))
+             (cond
+               ((string= "in" metric)
+                (if (and (>= height 59) (<= height 76))
+                    t
+                    nil))
+               ((string= "cm" metric)
+                (if (and (>= height 150) (<= height 193))
+                    t
+                    nil))
+               (t nil)))))
     (-> (get-aprop "hgt" pass)
         (cdr)
         (scan-groups)
         (in-range-p))))
 
+(defun valid-hcl-p (pass)
+  (flet ((scan-valid-p (hcl) (ppcre:scan "#[0-9,a-f]{6}" hcl)))
+    (-> (get-aprop "hcl" pass)
+        (cdr)
+        (scan-valid-p))))
+
+(defun valid-ecl-p (pass)
+  (-> (get-aprop "ecl" pass)
+      (cdr)
+      (member '("amb" "blu" "brn" "gry" "grn" "hzl" "oth") :test #'string=)))
+
+(defun valid-pid-p (pass)
+  (flet ((scan-valid-p (pid) (ppcre:scan "^[0-9]{9}$" pid)))
+    (-> (get-aprop "pid" pass)
+        (cdr)
+        (scan-valid-p))))
+
 (defun valid-pass-p (pass)
-  (every (lambda (prop)
-           (member prop (mapcar #'car pass) :test #'equalp))
-         *required-props*))
+  (and (every (lambda (prop)
+                (member prop (mapcar #'car pass) :test #'equalp))
+              *required-props*)
+       (valid-pid-p pass)
+       (valid-byr-p pass)
+       (valid-ecl-p pass)
+       (valid-eyr-p pass)
+       (valid-hcl-p pass)
+       (valid-iyr-p pass)
+       (valid-hgt-p pass)))
 
 (defun day4-1 ()
   (-<> (input-to-alist "input/day4.txt")
@@ -140,3 +157,21 @@
   (is (valid-eyr-p '(("eyr" . "2030"))))
   (is-false (valid-eyr-p '(("eyr" . "200")))))
 
+(test test-hct-p
+  (is (valid-hcl-p '(("hcl" . "#123abc"))))
+  (is-false (valid-hcl-p '(("hcl" . "#123abz"))))
+  (is-false (valid-hcl-p '(("hcl" . "123abc")))))
+
+(test test-ecl-p
+  (is (valid-ecl-p '(("ecl" . "brn"))))
+  (is (valid-ecl-p '(("ecl" . "blu"))))
+  (is (valid-ecl-p '(("ecl" . "amb"))))
+  (is (valid-ecl-p '(("ecl" . "gry"))))
+  (is (valid-ecl-p '(("ecl" . "grn"))))
+  (is (valid-ecl-p '(("ecl" . "hzl"))))
+  (is (valid-ecl-p '(("ecl" . "oth"))))
+  (is-false (valid-ecl-p '(("ecl" . "foo")))))
+
+(test test-pid-p
+  (is (valid-pid-p '(("pid" . "000000001"))))
+  (is-false (valid-pid-p '(("pid" . "0123456789")))))

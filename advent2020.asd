@@ -7,7 +7,8 @@
                "alexandria"
                "cl-ppcre"
                "arrows"
-               "fiveam")
+               "fiveam"
+               "gtwiwtg")
   :components ((:file "day1")
                (:file "day2")
                (:file "day3")

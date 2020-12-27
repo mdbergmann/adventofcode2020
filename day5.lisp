@@ -33,14 +33,20 @@
 (defun calc-seat-id (row col)
   (+ (* row 8) col))
 
-(defun day5 ()
-  (reduce #'max
-          (mapcar (lambda (bpass)
-                    (let ((row (calc-row (coerce (str:substring 0 7 bpass) 'list) 0 127))
-                          (col (calc-col (coerce (str:substring 7 10 bpass) 'list) 0 7)))
-                      (calc-seat-id row col)))
-                  (input-to-list))))
+(defun rowids ()
+  (mapcar (lambda (bpass)
+            (let ((row (calc-row (coerce (str:substring 0 7 bpass) 'list) 0 127))
+                  (col (calc-col (coerce (str:substring 7 10 bpass) 'list) 0 7)))
+              (calc-seat-id row col)))
+          (input-to-list)))
 
+(defun day5 ()
+  (reduce #'max (rowids)))
+
+(defun day5-2 ()
+  (loop :for i :from 81 :to 855
+        :if (null (member i *rowids* :test #'=))
+          :do (print i)))
 
 ;; ------------- tests -------------
 

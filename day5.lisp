@@ -6,6 +6,15 @@
 (defun input-to-list ()
   (uiop:read-file-lines "input/day5.txt"))
 
+;; alternative way, using a binary representation of #\F and #\B as 0/1
+(defun binary-ids (ids lower-key upper-key)
+  (reduce #'+
+          (loop :for id :in ids
+                :for index :from 0
+                :collect (cond
+                           ((eql id lower-key) 0)
+                           ((eql id upper-key) (expt 2 index))))))
+
 (defun divide-ids-rec (ids min max lower-key upper-key)
   (let ((head (car ids))
         (tail (cdr ids)))
@@ -25,7 +34,8 @@
               (divide-ids-rec tail (car upper) (cdr upper) lower-key upper-key))))))))
 
 (defun calc-row (rowids min max)
-  (divide-ids-rec rowids min max #\F #\B))
+  (divide-ids-rec rowids min max #\F #\B)
+  )
 
 (defun calc-col (colids min max)
   (divide-ids-rec colids min max #\L #\R))
@@ -45,7 +55,8 @@
 
 (defun day5-2 ()
   (loop :for i :from 81 :to 855
-        :if (null (member i *rowids* :test #'=))
+        :with rowids = (rowids)
+        :if (null (member i rowids :test #'=))
           :do (print i)))
 
 ;; ------------- tests -------------

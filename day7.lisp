@@ -57,37 +57,48 @@
 (defun parse-input (bags)
   (mapcar #'parse-bag-from-line bags))
 
-(defun find-distinct-bags (contain-names bags)
+(defun find-distinct-containing-bags-of (bag-name bags)
   (length
    (remove-duplicates
-    (loop :with search-for-bags = contain-names
+    (loop :with search-for-bags = (list bag-name)
           :with bags-found = t
           :with collected-bags = '()
           :while bags-found
           :do
-             (progn
-               (format t "search-for-bags: ~a~%" search-for-bags)
-               (format t "bags-found: ~a~%" bags-found)
-               (format t "collected-bags: ~a~%" collected-bags)
-               (let ((found-bags
-                       (->> (loop :for bag :in bags
-                                  :append
-                                  (loop :for bag-name :in search-for-bags
-                                        :collect
-                                        (if (not (null (get-sub-bag bag-name (bag-sub-bags bag))))
-                                            bag)))
-                            (remove-if #'null)
-                            (remove-duplicates))))
-                 (format t "Found bags: ~a~%" found-bags)
-                 (setf search-for-bags (mapcar #'bag-name found-bags))
-                 (setf collected-bags
-                       (append collected-bags found-bags))
-                 (setf bags-found (> (length found-bags) 0))))
+             (let ((found-bags
+                     (->> (loop :for bag :in bags
+                                :append
+                                (loop :for bag-name :in search-for-bags
+                                      :collect
+                                      (if (not (null (get-sub-bag bag-name (bag-sub-bags bag))))
+                                          bag)))
+                          (remove-if #'null)
+                          (remove-duplicates))))
+               (setf search-for-bags (mapcar #'bag-name found-bags))
+               (setf collected-bags
+                     (append collected-bags found-bags))
+               (setf bags-found (> (length found-bags) 0)))
           :finally (return collected-bags)))))
 
 (defun day7 ()
   (let ((bags (parse-input (uiop:read-file-lines "input/day7.txt"))))
-    (find-distinct-bags '("shiny gold") bags)))
+    (find-distinct-containing-bags-of "shiny gold" bags)))
+
+(defun find-bags-in (bag-name root-bags)
+  (labels ((collect-bag-paths (bags)
+             (format t "bags: ~a~%" bags)
+             (cond
+               ((null bags) 1)
+               (t (let* ((head
+                           (car bags))
+                         (tail
+                           (find (car head) root-bags :test #'string= :key #'bag-name)))
+                    (* (cdr head)
+                       (collect-bag-paths (bag-sub-bags tail))))))))
+    (->> (find bag-name root-bags :test #'string= :key #'bag-name)
+         (bag-sub-bags)
+         (collect-bag-paths)
+         (print))))
 
 ;; ------------- tests -------------
 
@@ -136,12 +147,26 @@ dotted black bags contain no other bags.")
   (let ((bags (parse-input (ppcre:split "\\n" *test-input*))))
     (is (= 9 (length bags)))))
 
-(test day7-example
+(test day7-1-example
   (format t "~%")
   (let ((bags (parse-input (ppcre:split "\\n" *test-input*))))
-    (is (= 4 (find-distinct-bags '("shiny gold") bags)))))
+    (is (= 4 (find-distinct-containing-bags-of "shiny gold" bags)))))
+
+(defvar *test-input-2* "shiny gold bags contain 2 dark red bags.
+dark red bags contain 2 dark orange bags.
+dark orange bags contain 2 dark yellow bags.
+dark yellow bags contain 2 dark green bags.
+dark green bags contain 2 dark blue bags.
+dark blue bags contain 2 dark violet bags.
+dark violet bags contain no other bags.")
+
+(test day7-2-example
+  (format t "~%")
+  (let ((bags (parse-input (ppcre:split "\\n" *test-input-2*))))
+    (is (= 126 (length (find-bags-in "shiny gold" bags))))))
 
 (run! 'parse-bag-test--no-other)
 (run! 'parse-bag-test--one-other)
 (run! 'parse-bag-test--two-other)
 (run! 'parse-full--test-data)
+(run! 'day7-1-example)

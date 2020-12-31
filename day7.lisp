@@ -84,21 +84,61 @@
   (let ((bags (parse-input (uiop:read-file-lines "input/day7.txt"))))
     (find-distinct-containing-bags-of "shiny gold" bags)))
 
-(defun find-bags-in (bag-name root-bags)
-  (labels ((collect-bag-paths (bags)
-             (format t "bags: ~a~%" bags)
-             (cond
-               ((null bags) 1)
-               (t (let* ((head
-                           (car bags))
-                         (tail
-                           (find (car head) root-bags :test #'string= :key #'bag-name)))
-                    (* (cdr head)
-                       (collect-bag-paths (bag-sub-bags tail))))))))
-    (->> (find bag-name root-bags :test #'string= :key #'bag-name)
+(defun find-bag-paths (bag-name all-bags)
+  (labels ((find-bag (bag-name bags)
+             (find bag-name bags :test #'string= :key #'bag-name))
+           (collect-bag-paths (bags)
+             (loop :for bag :in bags
+                   :and bag-paths = '()
+                   :with combined-paths = '()
+                   :do
+                      (labels ((record-bag (bag)
+                                 (format t "~%recording: ~a~%" bag)
+                                 (setf bag-paths (append bag-paths (list bag))))
+                               (collect-path-rec (bag-lst)
+                                 (format t "~%bags: ~a~%" bag-lst)
+                                 (format t "bag-paths: ~a~%" bag-paths)
+                                 (cond
+                                   ((null bag-lst) '())
+                                   (t (let* ((head
+                                               (car bag-lst))
+                                             (sub-bag
+                                               (find-bag (car head) all-bags))
+                                             (tail
+                                               (cdr bag-lst)))
+                                        (record-bag head)
+                                        (collect-path-rec (bag-sub-bags sub-bag))
+                                        (format t "Collect tail bags...~%")
+                                        (collect-path-rec tail))))))
+                        (record-bag bag)
+                        (collect-path-rec
+                         (bag-sub-bags
+                          (find-bag (car bag) all-bags)))
+                        (setf combined-paths
+                              (append combined-paths (list bag-paths)))
+                        (format t "combined-paths: ~a~%" combined-paths))
+                   :finally (return combined-paths)))
+           (mult-and-add-path-components (path)
+             (format t "path: ~a~%" path)
+             (if (null path)
+                 0
+                 (+ (reduce #'* path)
+                    (mult-and-add-path-components (cdr path))))))
+    (->> (find-bag bag-name all-bags)
          (bag-sub-bags)
+         (print)
          (collect-bag-paths)
-         (print))))
+         (print)
+         (mapcar #'print)
+         (mapcar (lambda (bag-path)
+                   (mult-and-add-path-components
+                    (mapcar #'cdr bag-path))))
+         (reduce #'+)
+         )))
+
+(defun day7-2 ()
+  (let ((bags (parse-input (uiop:read-file-lines "input/day7.txt"))))
+    (find-bag-paths "shiny gold" bags)))
 
 ;; ------------- tests -------------
 
@@ -152,21 +192,26 @@ dotted black bags contain no other bags.")
   (let ((bags (parse-input (ppcre:split "\\n" *test-input*))))
     (is (= 4 (find-distinct-containing-bags-of "shiny gold" bags)))))
 
-(defvar *test-input-2* "shiny gold bags contain 2 dark red bags.
+;;(defparameter *test-input-2* "shiny gold bags contain 2 dark red bags
+(defparameter *test-input-2* "shiny gold bags contain 2 dark red bags, 2 dotted blue bag.
 dark red bags contain 2 dark orange bags.
 dark orange bags contain 2 dark yellow bags.
 dark yellow bags contain 2 dark green bags.
 dark green bags contain 2 dark blue bags.
 dark blue bags contain 2 dark violet bags.
-dark violet bags contain no other bags.")
+dark violet bags contain no other bags.
+dotted blue bags contain 1 dashed yellow bag, 2 vibrant plum bag.
+dashed yellow bags contain no other bags.
+vibrant plum bags contain no other bags.")
 
 (test day7-2-example
   (format t "~%")
   (let ((bags (parse-input (ppcre:split "\\n" *test-input-2*))))
-    (is (= 126 (length (find-bags-in "shiny gold" bags))))))
+    (is (= 134 (find-bag-paths "shiny gold" bags)))))
 
 (run! 'parse-bag-test--no-other)
 (run! 'parse-bag-test--one-other)
 (run! 'parse-bag-test--two-other)
 (run! 'parse-full--test-data)
 (run! 'day7-1-example)
+(run! 'day7-2-example)

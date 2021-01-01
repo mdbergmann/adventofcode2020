@@ -39,7 +39,7 @@
   (let ((op (elt ops line)))
     (execute ops (execute-op op line))))
 
-(defun day8-example ()
+(defun day8-1 ()
   (let ((input (input-to-vector (uiop:read-file-string "input/day8.txt"))))
     (execute input 0)))
 
@@ -100,13 +100,13 @@ acc +6")
     (is (= 5 (execute-op (cons "jmp" 4) 1)))
     (is (= 1 (execute-op (cons "jmp" -4) 5)))))
 
-(test day8-example
+(test day8-1
   (with-fixture test-setup ()
-    (day8-example)))
+    (day8-1)))
 
 (run! 'parse-input-to-vector)
 (run! 'record-executed-line)
 (run! 'dont-execute-when-already-executed--dump-accu)
 (run! 'execute-op--acc)
 (run! 'execute-op--jmp)
-(run! 'day8-example)
+(run! 'day8-1)

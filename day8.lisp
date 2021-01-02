@@ -16,14 +16,18 @@
 (defparameter *executed-lines* '())
 (defparameter *accu* 0)
 
+(defun has-executed-line (line)
+  (member line *executed-lines*))
+
 (defmethod execute-op :before (op line)
   (declare (ignore op))
-  (if (member line *executed-lines*)
+  (if (has-executed-line line)
       (progn
         (format t "Accu: ~a~%" *accu*)
         (error "Line already executed!"))))
 
 (defmethod execute-op (op line)
+  ;;(format t "executing: ~a~%" op)
   (cond
     ((string= "acc" (car op))
      (setf *accu* (+ *accu* (cdr op))))
@@ -36,12 +40,46 @@
   (setf *executed-lines* (append (list line) *executed-lines*)))
 
 (defun execute (ops line)
-  (let ((op (elt ops line)))
-    (execute ops (execute-op op line))))
+  (if (< line (length ops))
+      (let ((op (elt ops line)))
+        (execute ops (execute-op op line)))))
+
+(defun execute-2 (ops line)
+  (loop :for i :from (1- (length ops)) :downto 0
+        :for op-lst = (copy-seq ops)
+        :for back-op = (elt ops i)
+        :do
+           (setf *executed-lines* '())
+           (setf *accu* 0)
+           ;;(format t "back-op: ~a~%" back-op)
+           (handler-case
+               (progn
+                 (cond
+                   ((string= "jmp" (car back-op))
+                    (setf (aref op-lst i)
+                          (cons "nop" (cdr back-op)))
+                    (format t "replaced 'jmp' with 'nop' at ~a~%" i))
+                   ((string= "nop" (car back-op))
+                    (setf (aref op-lst i)
+                          (cons "jmp" (cdr back-op)))
+                    (format t "replaced 'nop' with 'jmp' at ~a~%" i)))
+                 (execute op-lst line)
+                 (return-from execute-2 t))
+             (error (c)
+               (format t "~a~%" c)))))
 
 (defun day8-1 ()
+  (setf *executed-lines* '())
+  (setf *accu* 0)
   (let ((input (input-to-vector (uiop:read-file-string "input/day8.txt"))))
     (execute input 0)))
+
+(defun day8-2 ()
+  (setf *executed-lines* '())
+  (setf *accu* 0)
+  (let ((input (input-to-vector (uiop:read-file-string "input/day8.txt"))))
+    (execute-2 input 0)
+    (format t "Ended. Accu: ~a~%" *accu*)))
 
 ;; ------------- tests -------------
 
@@ -100,13 +138,28 @@ acc +6")
     (is (= 5 (execute-op (cons "jmp" 4) 1)))
     (is (= 1 (execute-op (cons "jmp" -4) 5)))))
 
-(test day8-1
+(test day8-1-example
   (with-fixture test-setup ()
-    (day8-1)))
+    (handler-case
+        (execute input 0)
+      (error (c)
+        (format t "err: ~a~%" c)))
+    (format t "Accu: ~a~%" *accu*)
+    (is-true t)))
+
+(test day8-2-example
+  (with-fixture test-setup ()
+    (handler-case
+        (execute-2 input 0)
+      (error (c)
+        (format t "err: ~a~%" c)))
+    (format t "Accu: ~a~%" *accu*)
+    (is (= 8 *accu*))))
 
 (run! 'parse-input-to-vector)
 (run! 'record-executed-line)
 (run! 'dont-execute-when-already-executed--dump-accu)
 (run! 'execute-op--acc)
 (run! 'execute-op--jmp)
-(run! 'day8-1)
+(run! 'day8-1-example)
+(run! 'day8-2-example)
